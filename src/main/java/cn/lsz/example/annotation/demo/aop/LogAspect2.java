@@ -91,6 +91,7 @@ public class LogAspect2 {
                         }else{
                             log.append(s);
                         }
+                        log.append("\n");
                         break;
                     }
                     /*case WARN:{
