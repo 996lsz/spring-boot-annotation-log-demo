@@ -3,6 +3,8 @@ package cn.lsz.example.annotation.demo.service;
 import cn.lsz.example.annotation.demo.annotation.LogAnnotation;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 /**
  * description
  * 
@@ -14,4 +16,8 @@ public interface TestService {
     String testMethod(String str);
 
     String testMethod2(String str);
+
+    void testMethod3(String str);
+
+    Map testMethod4(Map str);
 }

@@ -23,8 +23,8 @@ import java.util.logging.Logger;
 public class LogAspect {
 
     //定义切面，当执行带有@logAnnotation注解类执行下面方法
-    @Pointcut("@annotation(cn.lsz.example.annotation.demo.annotation.LogAnnotation)")
-    private void logAspect() {}
+    /*@Pointcut("@annotation(cn.lsz.example.annotation.demo.annotation.LogAnnotation)")
+    private void logAspect() {}*/
 
     @Around("@annotation(logAnnotation)")
     public Object aroundLog(ProceedingJoinPoint joinpoint, LogAnnotation logAnnotation) throws Throwable {
