@@ -1,6 +1,7 @@
 package cn.lsz.example.annotation.demo;
 
 import cn.lsz.example.annotation.demo.service.TestService;
+import cn.lsz.example.annotation.demo.utils.LogHelper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +28,7 @@ public class DemoApplicationTests {
         //service.testMethod3("test start3");
         Map param = new HashMap();
         param.put("paramTest",111);
-        service.testMethod4(param);
+        System.out.println("..."+service.testMethod4(param));
     }
 
 }

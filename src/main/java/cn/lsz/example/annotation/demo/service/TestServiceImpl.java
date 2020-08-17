@@ -42,6 +42,12 @@ public class TestServiceImpl implements TestService{
         Map result = new HashMap();
         result.put("test",233);
         LogHelper.info("结束{}",233);
+        try {
+            int i = 1 / 0;
+        }catch (Exception e){
+            LogHelper.error("test error", e);
+        }
+
         return result;
     }
 }

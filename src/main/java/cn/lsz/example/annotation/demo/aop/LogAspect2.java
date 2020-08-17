@@ -5,6 +5,7 @@ import cn.lsz.example.annotation.demo.annotation.LogAnnotation2;
 import cn.lsz.example.annotation.demo.utils.LogHelper;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.beanutils.PropertyUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -36,31 +37,16 @@ public class LogAspect2 {
         Object result = null;
         boolean success = true;
         Throwable e = null;
-        StringBuilder log = new StringBuilder();
         try {
             result = joinpoint.proceed();
+            return result;
         }catch (Throwable tempe){
             success = false;
             e = tempe;
             throw e;
         }finally {
-            //成功日志
-            log.append(logAnnotation.finallyLog()).append("执行是否成功:").append(success).append("\n");
-            //参数日志
-            log.append(argsLog(joinpoint.getArgs()));
-            //过程日志
-            log.append(logHelperLog());
-            //结果日志
-            log.append(resultLog(result));
-
-            if(success){
-                LOGGER.info(log.toString());
-            }else {
-                LOGGER.error(log.toString(), e);
-            }
-            LogHelper.remove();
+            finallyLog(logAnnotation, joinpoint, result, success, e);
         }
-        return result;
     }
 
     private String logHelperLog(){
@@ -72,50 +58,14 @@ public class LogAspect2 {
                 String s = item.getLogStr();
                 Object[] o = item.getArgs();
                 Throwable throwable = item.getThrowable();
-                switch (item.getLevel()){
-                    /*case DEBUG:{
-                        if(o != null){
-                            LOGGER.debug(s, o);
-                        }else if(item.getThrowable() != null){
-                            LOGGER.debug(s, throwable);
-                        }else{
-                            LOGGER.debug(s);
-                        }
-                        break;
-                    }*/
-                    case INFO:{
-                        if(o != null){
-                            log.append(MessageFormatter.arrayFormat(s, o).getMessage());
-                        }else if(item.getThrowable() != null){
-                            //LOGGER.info(s, throwable);
-                        }else{
-                            log.append(s);
-                        }
-                        log.append("\n");
-                        break;
-                    }
-                    /*case WARN:{
-                        if(o != null){
-                            LOGGER.warn(s, o);
-                        }else if(item.getThrowable() != null){
-                            LOGGER.warn(s, throwable);
-                        }else{
-                            LOGGER.warn(s);
-                        }
-                        break;
-                    }
-                    case ERROR:{
-                        if(o != null){
-                            LOGGER.error(s, o);
-                        }else if(item.getThrowable() != null){
-                            LOGGER.error(s, throwable);
-                        }else{
-                            LOGGER.error(s);
-                        }
-                        break;
-                    }*/
-                    default:{}
+                if(o != null){
+                    log.append(MessageFormatter.arrayFormat(s, o).getMessage());
+                }else if(throwable != null){
+                    log.append(s).append(ExceptionUtils.getStackTrace(throwable));
+                }else{
+                    log.append(s);
                 }
+                log.append("\n");
             }
         }
         return log.toString();
@@ -157,6 +107,48 @@ public class LogAspect2 {
     private String mapLog(Map map){
         JSONObject json = new JSONObject(map);
         return json.toJSONString();
+    }
+
+    private void finallyLog(LogAnnotation2 logAnnotation, ProceedingJoinPoint joinpoint, Object result, boolean success, Throwable e) {
+        try {
+            StringBuilder log = new StringBuilder();
+            //成功日志
+            log.append(logAnnotation.finallyLog()).append("执行是否成功:").append(success).append("\n");
+            //参数日志
+            log.append(argsLog(joinpoint.getArgs()));
+            //过程日志
+            log.append(logHelperLog());
+            //结果日志
+            log.append(resultLog(result));
+            if (!success) {
+                LOGGER.error(log.toString(), e);
+            } else {
+                LogHelper.LogLevel logLevel = LogHelper.getLogLevel();
+                switch (logLevel) {
+                    case DEBUG: {
+                        LOGGER.debug(log.toString());
+                        break;
+                    }
+                    case INFO: {
+                        LOGGER.info(log.toString());
+                        break;
+                    }
+                    case WARN: {
+                        LOGGER.warn(log.toString());
+                        break;
+                    }
+                    case ERROR: {
+                        LOGGER.error(log.toString());
+                        break;
+                    }
+                    default: {
+                    }
+                }
+            }
+            LogHelper.remove();
+        }catch (Exception loge){
+            LOGGER.error("LogAnnotation error", loge);
+        }
     }
 
 }

@@ -23,7 +23,9 @@ public class LogHelper {
 
 	private static ThreadLocal<List<Item>> threadLocal = new ThreadLocal<>();
 
-	/*public static void debug(String var1){
+	private static ThreadLocal<LogLevel> logLevelThreadLocal = new ThreadLocal<>();
+
+	public static void debug(String var1){
 		log(LogLevel.DEBUG, var1, null, null);
 	}
 
@@ -33,7 +35,7 @@ public class LogHelper {
 
 	public static void debug(String var1, Throwable var2){
 		log(LogLevel.DEBUG, var1, null, var2);
-	}*/
+	}
 
 	public static void info(String var1){
 		log(LogLevel.INFO, var1, null, null);
@@ -43,7 +45,7 @@ public class LogHelper {
 		log(LogLevel.INFO, var1, var2, null);
 	}
 
-	/*public static void info(String var1, Throwable var2){
+	public static void info(String var1, Throwable var2){
 		log(LogLevel.INFO, var1, null, var2);
 	}
 
@@ -69,10 +71,15 @@ public class LogHelper {
 
 	public static void error(String var1, Throwable var2){
 		log(LogLevel.ERROR, var1, null, var2);
-	}*/
+	}
 
 
 	private static void log(LogLevel logLevel, String logStr, Object[] args, Throwable throwable){
+		LogLevel existLogLevel = logLevelThreadLocal.get();
+		//日志级别升级
+		if(existLogLevel == null || logLevel.compareTo(existLogLevel) > 0){
+			logLevelThreadLocal.set(logLevel);
+		}
 		Item item = new Item(logLevel, logStr, args, throwable);
 		List<Item> items = threadLocal.get();
 		if(items == null){
@@ -107,7 +114,12 @@ public class LogHelper {
 		return threadLocal.get();
 	}
 
+	public static LogLevel getLogLevel(){
+		return logLevelThreadLocal.get();
+	}
+
 	public static void remove(){
 		threadLocal.remove();
+		logLevelThreadLocal.remove();
 	}
 }
