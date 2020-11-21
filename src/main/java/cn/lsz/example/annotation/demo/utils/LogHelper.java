@@ -2,11 +2,9 @@ package cn.lsz.example.annotation.demo.utils;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.Marker;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -115,7 +113,8 @@ public class LogHelper {
 	}
 
 	public static LogLevel getLogLevel(){
-		return logLevelThreadLocal.get();
+		LogLevel logLevel = logLevelThreadLocal.get();
+		return logLevel == null ? LogLevel.INFO : logLevel;
 	}
 
 	public static void remove(){

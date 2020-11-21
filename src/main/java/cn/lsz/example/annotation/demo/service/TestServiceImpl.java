@@ -1,7 +1,6 @@
 package cn.lsz.example.annotation.demo.service;
 
 import cn.lsz.example.annotation.demo.annotation.LogAnnotation;
-import cn.lsz.example.annotation.demo.annotation.LogAnnotation2;
 import cn.lsz.example.annotation.demo.utils.LogHelper;
 import org.springframework.stereotype.Component;
 
@@ -17,26 +16,25 @@ import java.util.Map;
 @Component
 public class TestServiceImpl implements TestService{
 
-    @Override
-    @LogAnnotation(startLogHint = "TestServiceImpl.testMethod执行开始",endLogHint = "TestServiceImpl.testMethod执行结束")
-    public String testMethod(String str) {
-        return "testSuccess";
-    }
 
     @Override
+    @LogAnnotation(logTitle = "测试正常运行方法", argsLog = false, resultLog = false)
     public String testMethod2(String str) {
-        return "testSuccess2";
+        LogHelper.info("111");
+        LogHelper.warn("222{}",222);
+        LogHelper.error("333{}",str);
+        return "success";
     }
 
     @Override
-    @LogAnnotation2(finallyLog = "直播数据保存")
+    @LogAnnotation(logTitle = "测试方法报错")
     public void testMethod3(String str) {
-        int a = 2/1;
+        int a = 2/0;
         //return "testSuccess";
     }
 
     @Override
-    @LogAnnotation2(finallyLog = "map数据保存")
+    @LogAnnotation(logTitle = "map数据保存")
     public Map testMethod4(Map str) {
         LogHelper.info("开始");
         Map result = new HashMap();
@@ -45,7 +43,7 @@ public class TestServiceImpl implements TestService{
         try {
             int i = 1 / 0;
         }catch (Exception e){
-            LogHelper.error("test error", e);
+            LogHelper.warn("test error", e);
         }
 
         return result;

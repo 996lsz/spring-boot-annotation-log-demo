@@ -13,8 +13,6 @@ import java.util.Map;
  */
 public interface TestService {
 
-    String testMethod(String str);
-
     String testMethod2(String str);
 
     void testMethod3(String str);

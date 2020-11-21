@@ -18,14 +18,27 @@ public class DemoApplicationTests {
     @Autowired
     TestService service;
 
+    /**
+     * 测试正常方法返回，log level随着LogHelper调用的日志级别提升
+     */
     @Test
-    public void contextLoads() {
-    /*    System.out.println("方法上有注解,记录入参以及返回值");
-        service.testMethod("test start");
-        System.out.println("无注解,什么都不记录");
-        service.testMethod2("test start2");*/
+    public void test() {
+        service.testMethod2("test start3");
+    }
 
-        //service.testMethod3("test start3");
+    /**
+     * 测试正常方法报错，log level默认error
+     */
+    @Test
+    public void test1() {
+        service.testMethod3("test start3");
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void test2(){
         Map param = new HashMap();
         param.put("paramTest",111);
         System.out.println("..."+service.testMethod4(param));
