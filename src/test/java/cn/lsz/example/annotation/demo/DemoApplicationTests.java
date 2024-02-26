@@ -1,7 +1,6 @@
 package cn.lsz.example.annotation.demo;
 
 import cn.lsz.example.annotation.demo.service.TestService;
-import cn.lsz.example.annotation.demo.utils.LogHelper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;

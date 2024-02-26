@@ -1,24 +1,30 @@
 package cn.lsz.example.annotation.demo.aop;
 
+
 import cn.lsz.example.annotation.demo.annotation.LogAnnotation;
-import cn.lsz.example.annotation.demo.utils.LogHelper;
+import cn.lsz.example.annotation.demo.constant.LogConstant;
+import cn.lsz.example.annotation.demo.entity.LogEntity;
+import cn.lsz.example.annotation.demo.entity.LogResult;
+import cn.lsz.example.annotation.demo.util.LogUtils;
 import com.alibaba.fastjson.JSONObject;
-import org.apache.commons.lang3.exception.ExceptionUtils;
+import lombok.Getter;
 import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.helpers.MessageFormatter;
 import org.springframework.stereotype.Component;
 
-import java.util.AbstractMap;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
  * description
- * 
+ *
  * @author LSZ 2019/10/15 15:29
  * @contact 648748030@qq.com
  */
@@ -28,129 +34,219 @@ public class LogAspect {
 
     protected final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 
+    /**
+     * 当前方法ThreadLocal
+     * 该对象会随着代码运行而动态变化
+     */
+    @Getter
+    private static ThreadLocal<LogEntity> currentThreadLocal = new ThreadLocal<>();
+
+    /**
+     * 根方法ThreadLocal
+     */
+    @Getter
+    private static ThreadLocal<LogEntity> rootThreadLocal = new ThreadLocal<>();
+
+
     @Around("@annotation(logAnnotation)")
     public Object aroundLog(ProceedingJoinPoint joinpoint, LogAnnotation logAnnotation) throws Throwable {
+        //初始化方法标识
+        recordMethod(joinpoint, logAnnotation);
+
         Object result = null;
-        boolean success = true;
         Throwable e = null;
+
         try {
             result = joinpoint.proceed();
             return result;
         }catch (Throwable tempe){
-            success = false;
             e = tempe;
             throw e;
         }finally {
-            finallyLog(logAnnotation, joinpoint, result, success, e);
-            LogHelper.remove();
+            setLogEntityData(logAnnotation, joinpoint, result, e);
+            //根方法执行完成后打印日志以及清除ThreadLocal缓存
+            if(isRootMethod(joinpoint)) {
+                finallyLog(logAnnotation);
+                removeThreadLocal();
+            }
         }
     }
 
-    private String logHelperLog(){
-        StringBuilder log  = new StringBuilder();
-        List<LogHelper.Item> itemList = LogHelper.getLog();
-        if(itemList != null){
-            log.append("过程：\n");
-            for (LogHelper.Item item : itemList) {
-                String s = item.getLogStr();
-                Object[] o = item.getArgs();
-                Throwable throwable = item.getThrowable();
-                if(o != null){
-                    log.append(MessageFormatter.arrayFormat(s, o).getMessage());
-                }else if(throwable != null){
-                    log.append(s).append(ExceptionUtils.getStackTrace(throwable));
-                }else{
-                    log.append(s);
-                }
-                log.append("\n");
+
+
+    private void setLogEntityData(LogAnnotation logAnnotation, ProceedingJoinPoint joinpoint, Object result, Throwable e)  {
+        try {
+            LogEntity entity = currentThreadLocal.get();
+            if(logAnnotation.argsLog()) {
+                entity.setArgs(joinpoint.getArgs());
             }
+            if(logAnnotation.returnLog()) {
+                entity.setResult(result);
+            }
+            entity.setTitle(logAnnotation.logTitle());
+            entity.setThrowable(e);
+            entity.setMethod(getMethodStr(joinpoint));
+            if(entity.getParent() != null) {
+                currentThreadLocal.set(entity.getParent());
+            }
+        }catch (Exception ee){
+            LOGGER.error("LogAnnotation error", ee);
         }
-        return log.toString();
+/*        LogEntity entity = currentThreadLocal.get();
+        if(entity.getParent() != null) {
+            currentThreadLocal.set(entity.getParent());
+        }*/
     }
 
-    private String resultLog(Object result){
-        StringBuilder log = new StringBuilder();
-        //如果有其它类型参数不能正常展示继续完善
-        if(result != null) {
-            log.append("执行结果:");
-            if(result instanceof AbstractMap){
-                Map map = (Map) result;
-                log.append(mapLog(map)).append("\n");
-            } else {
-                log.append(result.toString()).append("\n");
-            }
-        }
-        return log.toString();
+    private boolean isRootMethod(ProceedingJoinPoint joinpoint) throws NoSuchMethodException {
+        String methodStr = getMethodStr(joinpoint);
+        String rootMethod = rootThreadLocal.get().getMethod();
+        return methodStr.equals(rootMethod);
     }
 
-    private String argsLog(Object args[]){
-        StringBuilder log = new StringBuilder("入参：\n");
-        int argIndex = 1;
-        for (Object arg : args) {
-            log.append("参数").append(argIndex).append(":");
-            //如果有其它类型参数不能正常展示继续完善
-            if(arg != null) {
-                if (arg instanceof AbstractMap) {
-                    Map map = (Map) arg;
-                    log.append(mapLog(map)).append("\n");
-                } else {
-                    log.append(arg.toString()).append("\n");
-                }
-            }
-            argIndex++;
-        }
-        return log.toString();
+    private void removeThreadLocal() {
+        currentThreadLocal.remove();
+        rootThreadLocal.remove();
     }
+
 
     private String mapLog(Map map){
         JSONObject json = new JSONObject(map);
         return json.toJSONString();
     }
 
-    private void finallyLog(LogAnnotation logAnnotation, ProceedingJoinPoint joinpoint, Object result, boolean success, Throwable e) {
-        try {
-            StringBuilder log = new StringBuilder();
-            //成功日志
-            log.append(logAnnotation.logTitle()).append("执行是否成功:").append(success).append("\n");
-            //参数日志
-            if(logAnnotation.argsLog()) {
-                log.append(argsLog(joinpoint.getArgs()));
+    /**
+     * 选择日志输出格式
+     * @param logAnnotation
+     */
+    private void finallyLog(LogAnnotation logAnnotation) {
+        LogConstant.LogType logType = logAnnotation.logType();
+        String log;
+        switch (logType) {
+            case JSON:{
+                log = finallyLogJSON(logAnnotation);
+                break;
             }
-            //过程日志
-            log.append(logHelperLog());
-            //结果日志
-            if(logAnnotation.resultLog()){
-                log.append(resultLog(result));
+            case TEXT:{
+                log = finallyLogTEXT(logAnnotation);
+                break;
             }
-            if (!success) {
-                LOGGER.error(log.toString(), e);
-            } else {
-                LogHelper.LogLevel logLevel = LogHelper.getLogLevel();
-                switch (logLevel) {
-                    case DEBUG: {
-                        LOGGER.debug(log.toString());
-                        break;
-                    }
-                    case INFO: {
-                        LOGGER.info(log.toString());
-                        break;
-                    }
-                    case WARN: {
-                        LOGGER.warn(log.toString());
-                        break;
-                    }
-                    case ERROR: {
-                        LOGGER.error(log.toString());
-                        break;
-                    }
-                    default: {
-                    }
-                }
+            default: {
+                log = finallyLogTEXT(logAnnotation);
+                break;
             }
-        }catch (Exception loge){
-            LOGGER.error("LogAnnotation error", loge);
         }
+        LogEntity entity = rootThreadLocal.get();
+        LogConstant.LogLevel logLevel = entity.getLogLevel();
+        if(entity.getThrowable() != null){
+            logLevel = LogConstant.LogLevel.ERROR;
+        }
+        switch (logLevel) {
+            case DEBUG: {
+                LOGGER.debug(log);
+                break;
+            }
+            case INFO: {
+                LOGGER.info(log);
+                break;
+            }
+            case WARN: {
+                LOGGER.warn(log);
+                break;
+            }
+            case ERROR: {
+                LOGGER.error(log);
+                break;
+            }
+            default: {
+                LOGGER.info(log);
+                break;
+            }
+
+        }
+
     }
 
+    private String finallyLogTEXT(LogAnnotation logAnnotation) {
+        LogEntity entity = rootThreadLocal.get();
+        //组装日志格式
+        String log = LogUtils.logEntityToTextString(entity);
+        return log;
+    }
 
+    private String finallyLogJSON(LogAnnotation logAnnotation){
+        LogEntity entity = rootThreadLocal.get();
+        LogResult result = LogUtils.logEntityToLogResult(entity);
+        String log = JSONObject.toJSONString(result);
+        return log;
+    }
+
+    private static LogResult getLogResult(){
+        LogEntity entity = getLogEntity();
+        LogResult result = LogUtils.logEntityToLogResult(entity);
+        return result;
+    }
+
+    private static LogEntity getLogEntity(){
+        LogEntity result = rootThreadLocal.get();
+        return result;
+    }
+
+    public static void log(LogConstant.LogLevel logLevel, String logStr, Object[] args, Throwable throwable){
+        LogEntity entity = currentThreadLocal.get();
+        LogConstant.LogLevel existLogLevel = entity.getLogLevel();
+        //日志级别升级
+        if(existLogLevel == null || logLevel.compareTo(existLogLevel) > 0){
+            entity.setLogLevel(logLevel);
+            //父级日志级别升级
+            LogEntity parent = entity.getParent();
+            for (;;){
+                if(parent == null){
+                    break;
+                }else {
+                    parent.setLogLevel(logLevel);
+                    parent = parent.getParent();
+                }
+            }
+        }
+        LogEntity.Item item = new LogEntity.Item(logLevel, logStr, args, throwable);
+        List<LogEntity.Item> items = entity.getItemList();
+        if(items == null){
+            items = new ArrayList<>();
+            entity.setItemList(items);
+        }
+        items.add(item);
+    }
+
+    private void recordMethod(ProceedingJoinPoint joinpoint, LogAnnotation logAnnotation) {
+        LogEntity currentEntity = new LogEntity();
+        LogEntity rootEntity = rootThreadLocal.get();
+        LogEntity parentEntity = currentThreadLocal.get();
+
+        currentEntity.setLogLevel(logAnnotation.defaultLogLevel());
+        if(rootEntity == null){
+            rootThreadLocal.set(currentEntity);
+            currentThreadLocal.set(currentEntity);
+        }else {
+            currentEntity.setParent(parentEntity);
+        }
+        if(parentEntity != null) {
+            List<LogEntity> logEntityList = parentEntity.getLogEntityList();
+            if (logEntityList == null) {
+                logEntityList = new ArrayList<>();
+                parentEntity.setLogEntityList(logEntityList);
+            }
+            logEntityList.add(currentEntity);
+        }
+        currentThreadLocal.set(currentEntity);
+    }
+
+    private static String getMethodStr(ProceedingJoinPoint joinPoint) throws NoSuchMethodException {
+        Signature sig = joinPoint.getSignature();
+        MethodSignature msig = (MethodSignature) sig;
+        Object target = joinPoint.getTarget();
+        Method currentMethod = target.getClass().getMethod(msig.getName(), msig.getParameterTypes());
+        String methodStr = currentMethod.toString();
+        return methodStr;
+    }
 }

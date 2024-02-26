@@ -1,7 +1,7 @@
 package cn.lsz.example.annotation.demo.service;
 
 import cn.lsz.example.annotation.demo.annotation.LogAnnotation;
-import cn.lsz.example.annotation.demo.utils.LogHelper;
+import cn.lsz.example.annotation.demo.util.LogHelper;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -18,7 +18,7 @@ public class TestServiceImpl implements TestService{
 
 
     @Override
-    @LogAnnotation(logTitle = "测试正常运行方法", argsLog = false, resultLog = false)
+    @LogAnnotation(logTitle = "测试正常运行方法", argsLog = false, returnLog = false)
     public String testMethod2(String str) {
         LogHelper.info("111");
         LogHelper.warn("222{}",222);
